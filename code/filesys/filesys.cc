@@ -143,6 +143,15 @@ FileSystem::FileSystem(bool format) {
 }
 
 //----------------------------------------------------------------------
+// MP4 mod tag
+// FileSystem::~FileSystem
+//----------------------------------------------------------------------
+FileSystem::~FileSystem() {
+    delete freeMapFile;
+    delete directoryFile;
+}
+
+//----------------------------------------------------------------------
 // FileSystem::Create
 // 	Create a file in the Nachos file system (similar to UNIX create).
 //	Since we can't increase the size of files dynamically, we have

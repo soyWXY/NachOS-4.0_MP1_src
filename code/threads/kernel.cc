@@ -113,10 +113,24 @@ void Kernel::Initialize() {
 #else
     fileSystem = new FileSystem(formatFlag);
 #endif  // FILESYS_STUB
-    postOfficeIn = new PostOfficeInput(10);
-    postOfficeOut = new PostOfficeOutput(reliability);
+
+    // MP4 mod tag
+    // postOfficeIn = new PostOfficeInput(10);
+    // postOfficeOut = new PostOfficeOutput(reliability);
 
     interrupt->Enable();
+}
+
+//----------------------------------------------------------------------
+//	MP4 mod tag
+//	Kernel::PrepareToEnd
+// 	Since Nachos does not disable Timer, Console after all threads complete,
+//	which will result in generating infinite interrupts. We manually disable timer,
+//	console, etc. after all threads complete.
+//----------------------------------------------------------------------
+void Kernel::PrepareToEnd() {
+    alarm->Disable();
+    synchConsoleIn->Disable();
 }
 
 //----------------------------------------------------------------------
@@ -134,8 +148,9 @@ Kernel::~Kernel() {
     delete synchConsoleOut;
     delete synchDisk;
     delete fileSystem;
-    delete postOfficeIn;
-    delete postOfficeOut;
+    // Mp4 mod tag
+    // delete postOfficeIn;
+    // delete postOfficeOut;
 
     Exit(0);
 }

@@ -105,11 +105,13 @@ class Interrupt {
 
     void PrintInt(int number);  // print int
 
+#ifdef FILESYS_STUB
     int CreateFile(char *filename);
     OpenFileId OpenFile(char *name);
     int WriteFile(char *buffer, int size, OpenFileId id);
     int ReadFile(char *buffer, int size, OpenFileId id);
     int CloseFile(OpenFileId id);
+#endif
 
     void YieldOnReturn();  // cause a context switch on return
                            // from an interrupt handler

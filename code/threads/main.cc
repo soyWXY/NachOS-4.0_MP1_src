@@ -142,6 +142,15 @@ void Print(char *name) {
 }
 
 //----------------------------------------------------------------------
+// MP4 mod tag
+// CreateDirectory
+//      Create a new directory with "name"
+//----------------------------------------------------------------------
+static void CreateDirectory(char *name) {
+    // MP4 Assignment
+}
+
+//----------------------------------------------------------------------
 // main
 // 	Bootstrap the operating system kernel.
 //
@@ -169,6 +178,12 @@ int main(int argc, char **argv) {
     char *removeFileName = NULL;
     bool dirListFlag = false;
     bool dumpFlag = false;
+    // MP4 mod tag
+    char *createDirectoryName = NULL;
+    char *listDirectoryName = NULL;
+    bool mkdirFlag = false;
+    bool recursiveListFlag = false;
+    bool recursiveRemoveFlag = false;
 #endif  // FILESYS_STUB
 
     // some command line arguments are handled here.
@@ -206,8 +221,32 @@ int main(int argc, char **argv) {
             ASSERT(i + 1 < argc);
             removeFileName = argv[i + 1];
             i++;
+        } else if (strcmp(argv[i], "-rr") == 0) {
+            // MP4 mod tag
+            ASSERT(i + 1 < argc);
+            removeFileName = argv[i + 1];
+            recursiveRemoveFlag = true;
+            i++;
         } else if (strcmp(argv[i], "-l") == 0) {
+            // MP4 mod tag
+            ASSERT(i + 1 < argc);
+            listDirectoryName = argv[i + 1];
             dirListFlag = true;
+            i++;
+        } else if (strcmp(argv[i], "-lr") == 0) {
+            // MP4 mod tag
+            // recursive list
+            ASSERT(i + 1 < argc);
+            listDirectoryName = argv[i + 1];
+            dirListFlag = true;
+            recursiveListFlag = true;
+            i++;
+        } else if (strcmp(argv[i], "-mkdir") == 0) {
+            // MP4 mod tag
+            ASSERT(i + 1 < argc);
+            createDirectoryName = argv[i + 1];
+            mkdirFlag = true;
+            i++;
         } else if (strcmp(argv[i], "-D") == 0) {
             dumpFlag = true;
         }
@@ -257,6 +296,10 @@ int main(int argc, char **argv) {
     }
     if (dirListFlag) {
         kernel->fileSystem->List();
+    }
+    if (mkdirFlag) {
+        // MP4 mod tag
+        CreateDirectory(createDirectoryName);
     }
     if (printFileName != NULL) {
         Print(printFileName);

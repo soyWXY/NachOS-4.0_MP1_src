@@ -28,6 +28,7 @@ int SysAdd(int op1, int op2) {
     return op1 + op2;
 }
 
+#ifdef FILESYS_STUB
 int SysCreate(char *filename) {
     // return value
     // 1: success
@@ -42,4 +43,5 @@ OpenFileId SysOpen(char *name)
         return kernel->fileSystem->OpenAFile(name);
 }
 */
+#endif
 #endif /* ! __USERPROG_KSYSCALL_H__ */

@@ -86,6 +86,8 @@ void ExceptionHandler(ExceptionType which) {
                     SysHalt();
                     ASSERTNOTREACHED();
                     break;
+                    // MP4 mod tag
+#ifdef FILESYS_STUB
                 case SC_Create:
                     val = kernel->machine->ReadRegister(4);
                     {
@@ -100,6 +102,7 @@ void ExceptionHandler(ExceptionType which) {
                     return;
                     ASSERTNOTREACHED();
                     break;
+#endif
                 case SC_Add:
                     DEBUG(dbgSys, "Add " << kernel->machine->ReadRegister(4) << " + " << kernel->machine->ReadRegister(5) << "\n");
                     /* Process SysAdd Systemcall*/

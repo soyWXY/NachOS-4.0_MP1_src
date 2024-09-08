@@ -36,6 +36,10 @@ class Kernel {
     void Initialize();  // initialize the kernel -- separated
                         // from constructor because
                         // refers to "kernel" as a global
+
+    // 2015.11.25 added
+    void PrepareToEnd();  // called before all running programs end
+
     void ExecAll();
     int Exec(char *name);
     void ThreadSelfTest();  // self test of threads and synchronization
@@ -45,12 +49,14 @@ class Kernel {
     Thread *getThread(int threadID) { return t[threadID]; }
 
     void PrintInt(int number);
+#ifdef FILESYS_STUB
     int CreateFile(char *filename);  // fileSystem call
 
     OpenFileId OpenFile(char *name);                       // fileSystem call
     int WriteFile(char *buffer, int size, OpenFileId id);  // fileSystem call
     int ReadFile(char *buffer, int size, OpenFileId id);   // fileSystem call
     int CloseFile(OpenFileId id);                          // fileSystem call
+#endif
 
     // These are public for notational convenience; really,
     // they're global variables used everywhere.

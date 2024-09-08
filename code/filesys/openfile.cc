@@ -150,6 +150,8 @@ int OpenFile::WriteAt(char *from, int numBytes, int position) {
 
     buf = new char[numSectors * SectorSize];
 
+    memset(buf, 0, sizeof(char) * numSectors * SectorSize);  // dummy operation to keep valgrind happy
+
     firstAligned = (position == (firstSector * SectorSize));
     lastAligned = ((position + numBytes) == ((lastSector + 1) * SectorSize));
 

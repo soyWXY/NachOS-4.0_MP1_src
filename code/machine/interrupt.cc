@@ -216,8 +216,9 @@ void Interrupt::Idle() {
     // is not reached.  Instead, the halt must be invoked by the user program.
 
     DEBUG(dbgInt, "Machine idle.  No interrupts to do.");
-    cout << "No threads ready or runnable, and no pending interrupts.\n";
-    cout << "Assuming the program completed.\n";
+    // MP4 mod tag
+    // cout << "No threads ready or runnable, and no pending interrupts.\n";
+    // cout << "Assuming the program completed.\n";
     Halt();
 }
 

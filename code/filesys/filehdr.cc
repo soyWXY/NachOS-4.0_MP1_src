@@ -30,6 +30,30 @@
 #include "synchdisk.h"
 
 //----------------------------------------------------------------------
+// MP4 mod tag
+// FileHeader::FileHeader
+//	There is no need to initialize a fileheader,
+//	since all the information should be initialized by Allocate or FetchFrom.
+//	The purpose of this function is to keep valgrind happy.
+//----------------------------------------------------------------------
+FileHeader::FileHeader() {
+    numBytes = -1;
+    numSectors = -1;
+    memset(dataSectors, -1, sizeof(dataSectors));
+}
+
+//----------------------------------------------------------------------
+// MP4 mod tag
+// FileHeader::~FileHeader
+//	Currently, there is not need to do anything in destructor function.
+//	However, if you decide to add some "in-core" data in header
+//	Always remember to deallocate their space or you will leak memory
+//----------------------------------------------------------------------
+FileHeader::~FileHeader() {
+    // nothing to do now
+}
+
+//----------------------------------------------------------------------
 // FileHeader::Allocate
 // 	Initialize a fresh file header for a newly created file.
 //	Allocate data blocks for the file out of the map of free disk blocks.
@@ -78,6 +102,11 @@ void FileHeader::Deallocate(PersistentBitmap *freeMap) {
 
 void FileHeader::FetchFrom(int sector) {
     kernel->synchDisk->ReadSector(sector, (char *)this);
+
+    /*
+        MP4 Hint:
+        After you add some in-core informations, you will need to rebuild the header's structure
+    */
 }
 
 //----------------------------------------------------------------------
@@ -89,6 +118,15 @@ void FileHeader::FetchFrom(int sector) {
 
 void FileHeader::WriteBack(int sector) {
     kernel->synchDisk->WriteSector(sector, (char *)this);
+
+    /*
+        MP4 Hint:
+        After you add some in-core informations, you may not want to write all fields into disk.
+        Use this instead:
+        char buf[SectorSize];
+        memcpy(buf + offset, &dataToBeWritten, sizeof(dataToBeWritten));
+        ...
+    */
 }
 
 //----------------------------------------------------------------------

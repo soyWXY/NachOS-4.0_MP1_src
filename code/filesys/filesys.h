@@ -90,6 +90,8 @@ class FileSystem {
                               // If "format", there is nothing on
                               // the disk, so initialize the directory
                               // and the bitmap of free blocks.
+    // MP4 mod tag
+    ~FileSystem();
 
     bool Create(char *name, int initialSize);
     // Create a file (UNIX creat)
