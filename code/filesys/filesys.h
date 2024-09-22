@@ -66,19 +66,57 @@ class FileSystem {
     }
 
     //  The OpenAFile function is used for kernel open system call
-    /*  OpenFileId OpenAFile(char *name) {
-        }
-        int WriteFile(char *buffer, int size, OpenFileId id){
-        }
-        int ReadFile(char *buffer, int size, OpenFileId id){
-        }
-        int CloseFile(OpenFileId id){
-        }
-    */
+    OpenFileId OpenAFile(char *name) {
+        int idx = FindAvailable();
+        if (idx < 0)
+            return -1;
+
+        int fd = OpenForReadWrite(name, false);
+        if (fd == -1)
+            return -1;
+
+        OpenFileTable[idx] = new OpenFile(fd);
+        return idx;
+    }
+
+    int WriteFile(char *buffer, int size, OpenFileId id) {
+        OpenFile *file = OpenFileTable[id];
+        if (id < 0 || id >= 20 || !file)
+            return -1;
+
+        return file->Write(buffer, size);
+    }
+
+    int ReadFile(char *buffer, int size, OpenFileId id) {
+        OpenFile *file = OpenFileTable[id];
+        if (id < 0 || id >= 20 || !file)
+            return -1;
+
+        return file->Read(buffer, size);
+    }
+
+    int CloseFile(OpenFileId id) {
+        OpenFile *file = OpenFileTable[id];
+        if (id < 0 || id >= 20 || !file)
+            return -1;
+
+        delete OpenFileTable[id];
+        OpenFileTable[id] = NULL;
+        return 1;
+    }
 
     bool Remove(char *name) { return Unlink(name) == 0; }
 
     OpenFile *OpenFileTable[20];
+
+   private:
+    int FindAvailable() {
+        for (int i = 0; i < 20; ++i) {
+            if (!OpenFileTable[i])
+                return i;
+        }
+        return -1;
+    }
 };
 
 #else  // FILESYS
