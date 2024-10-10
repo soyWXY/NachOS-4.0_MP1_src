@@ -67,6 +67,10 @@ class FileSystem {
 
     //  The OpenAFile function is used for kernel open system call
     OpenFileId OpenAFile(char *name) {
+        string filename(name);
+        if (FindDuplicate(filename))
+            return -1;
+
         int idx = FindAvailable();
         if (idx < 0)
             return -1;
@@ -76,6 +80,7 @@ class FileSystem {
             return -1;
 
         OpenFileTable[idx] = new OpenFile(fd);
+        OpenFilename[idx] = filename;
         return idx;
     }
 
@@ -102,6 +107,7 @@ class FileSystem {
 
         delete OpenFileTable[id];
         OpenFileTable[id] = NULL;
+        OpenFilename[id].clear();
         return 1;
     }
 
@@ -117,6 +123,16 @@ class FileSystem {
         }
         return -1;
     }
+
+    bool FindDuplicate(const string &name) {
+        for (int i = 0; i < 20; ++i) {
+            if (OpenFilename[i] == name)
+                return true;
+        }
+        return false;
+    }
+
+    string OpenFilename[20];
 };
 
 #else  // FILESYS
