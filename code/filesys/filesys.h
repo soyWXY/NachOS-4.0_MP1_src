@@ -41,6 +41,8 @@
 #ifdef FILESYS_STUB  // Temporarily implement file system calls as
                      // calls to UNIX, until the real file system
                      // implementation is available
+#include <string>
+
 typedef int OpenFileId;
 
 class FileSystem {
@@ -67,6 +69,10 @@ class FileSystem {
 
     //  The OpenAFile function is used for kernel open system call
     OpenFileId OpenAFile(char *name) {
+        std::string filename(name);
+        if (FindDuplicate(filename))
+            return -1;
+
         int idx = FindAvailable();
         if (idx < 0)
             return -1;
@@ -76,6 +82,7 @@ class FileSystem {
             return -1;
 
         OpenFileTable[idx] = new OpenFile(fd);
+        OpenFilename[idx] = filename;
         return idx;
     }
 
@@ -102,6 +109,7 @@ class FileSystem {
 
         delete OpenFileTable[id];
         OpenFileTable[id] = NULL;
+        OpenFilename[id].clear();
         return 1;
     }
 
@@ -117,6 +125,16 @@ class FileSystem {
         }
         return -1;
     }
+
+    bool FindDuplicate(const std::string &name) {
+        for (int i = 0; i < 20; ++i) {
+            if (OpenFilename[i] == name)
+                return true;
+        }
+        return false;
+    }
+
+    std::string OpenFilename[20];
 };
 
 #else  // FILESYS
