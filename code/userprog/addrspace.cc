@@ -66,15 +66,12 @@ AddrSpace::AddrSpace() {
     pageTable = new TranslationEntry[NumPhysPages];
     for (int i = 0; i < NumPhysPages; i++) {
         pageTable[i].virtualPage = i;  // for now, virt page # = phys page #
-        pageTable[i].physicalPage = i;
-        pageTable[i].valid = TRUE;
+        pageTable[i].physicalPage = NumPhysPages;  // set an invalid value for debugging
+        pageTable[i].valid = FALSE;
         pageTable[i].use = FALSE;
         pageTable[i].dirty = FALSE;
         pageTable[i].readOnly = FALSE;
     }
-
-    // zero out the entire address space
-    bzero(kernel->machine->mainMemory, MemorySize);
 }
 
 //----------------------------------------------------------------------
@@ -83,7 +80,40 @@ AddrSpace::AddrSpace() {
 //----------------------------------------------------------------------
 
 AddrSpace::~AddrSpace() {
+    for (int i = 0; i < NumPhysPages; ++i) {
+        if (pageTable[i].valid) {
+            bzero(&kernel->machine->mainMemory[i * PageSize], PageSize);
+            kernel->allFreeFrame.Prepend(i);
+        }
+    }
     delete[] pageTable;
+}
+
+void AddrSpace::LoadSegment(OpenFile *executable, int vaddr, int size, bool readonly) {
+    const int vpn = vaddr / PageSize;
+    const int offset = vaddr % PageSize;
+    const int npage = (vaddr + size - 1) / PageSize - vpn + 1;
+    int read_len = 0;
+    char *mem = kernel->machine->mainMemory;
+    for (int i = 0; i < npage; ++i) {
+        int pfn = kernel->allFreeFrame.RemoveFront();
+        pageTable[vpn + i].valid = TRUE;
+        pageTable[vpn + i].readOnly = readonly;
+        pageTable[vpn + i].physicalPage = pfn;
+
+        if (i == npage - 1) {
+            executable->ReadAt(&mem[pfn * PageSize],
+                size - read_len, vaddr + read_len);
+        } else if (i) {
+            executable->ReadAt(&mem[pfn * PageSize],
+                PageSize, vaddr + read_len);
+                read_len += PageSize;
+        } else {
+            executable->ReadAt(&mem[pfn * PageSize + offset],
+                PageSize - offset, vaddr);
+                read_len += PageSize - offset;
+        }
+    }
 }
 
 //----------------------------------------------------------------------
@@ -112,18 +142,14 @@ bool AddrSpace::Load(char *fileName) {
         SwapHeader(&noffH);
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
+    int highest_va = max(noffH.code.virtualAddr + noffH.code.size - 1,
+        noffH.initData.virtualAddr + noffH.initData.size - 1);
 #ifdef RDATA
-    // how big is address space?
-    size = noffH.code.size + noffH.readonlyData.size + noffH.initData.size +
-           noffH.uninitData.size + UserStackSize;
-    // we need to increase the size
-    // to leave room for the stack
-#else
-    // how big is address space?
-    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size + UserStackSize;  // we need to increase the size
-                                                                                           // to leave room for the stack
+    highest_va = max(highest_va,
+        noffH.readonlyData.virtualAddr + noffH.readonlyData.size - 1);
 #endif
-    numPages = divRoundUp(size, PageSize);
+
+    numPages = divRoundUp(highest_va, PageSize) + divRoundUp(UserStackSize, PageSize);
     size = numPages * PageSize;
 
     ASSERT(numPages <= NumPhysPages);  // check we're not trying
@@ -133,30 +159,34 @@ bool AddrSpace::Load(char *fileName) {
 
     DEBUG(dbgAddr, "Initializing address space: " << numPages << ", " << size);
 
-    // then, copy in the code and data segments into memory
-    // Note: this code assumes that virtual address = physical address
+    if (numPages > kernel->allFreeFrame.NumInList()) {
+        DEBUG(dbgAddr, "Insufficient free frame. aquire # = "
+            << numPages << ", free # = " << kernel->allFreeFrame.NumInList());
+        DEBUG(dbgMach, "Exception: out of memory. Terminate Program.");
+        kernel->interrupt->setStatus(SystemMode);
+        ExceptionHandler(MemoryLimitException);
+        ASSERTNOTREACHED();
+    }
+    //exception and switch make the new thrd in kernel mode?
+
     if (noffH.code.size > 0) {
         DEBUG(dbgAddr, "Initializing code segment.");
         DEBUG(dbgAddr, noffH.code.virtualAddr << ", " << noffH.code.size);
-        executable->ReadAt(
-            &(kernel->machine->mainMemory[noffH.code.virtualAddr]),
-            noffH.code.size, noffH.code.inFileAddr);
+        LoadSegment(executable, noffH.code.virtualAddr, noffH.code.size, TRUE);
     }
+
     if (noffH.initData.size > 0) {
         DEBUG(dbgAddr, "Initializing data segment.");
         DEBUG(dbgAddr, noffH.initData.virtualAddr << ", " << noffH.initData.size);
-        executable->ReadAt(
-            &(kernel->machine->mainMemory[noffH.initData.virtualAddr]),
-            noffH.initData.size, noffH.initData.inFileAddr);
+        LoadSegment(executable, noffH.initData.virtualAddr, noffH.initData.size, FALSE);
     }
 
 #ifdef RDATA
     if (noffH.readonlyData.size > 0) {
         DEBUG(dbgAddr, "Initializing read only data segment.");
         DEBUG(dbgAddr, noffH.readonlyData.virtualAddr << ", " << noffH.readonlyData.size);
-        executable->ReadAt(
-            &(kernel->machine->mainMemory[noffH.readonlyData.virtualAddr]),
-            noffH.readonlyData.size, noffH.readonlyData.inFileAddr);
+        LoadSegment(executable, noffH.readonlyData.virtualAddr,
+            noffH.readonlyData.size, FALSE);
     }
 #endif
 

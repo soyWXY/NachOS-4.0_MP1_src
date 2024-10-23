@@ -198,6 +198,23 @@ void ExceptionHandler(ExceptionType which) {
                     break;
             }
             break;
+        case PageFaultException:
+            // will oom occur in pf?
+            int pfn = kernel->allFreeFrame.RemoveFront();
+            int vpn = kernel->machine->ReadRegister(BadVAddrReg) / PageSize;
+            kernel->machine->pageTable[vpn].valid = TRUE;
+            kernel->machine->pageTable[vpn].physicalPage = pfn;
+            return;
+            ASSERTNOTREACHED();
+            break;
+        case AddressErrorException:
+        case ReadOnlyException:
+        case BusErrorException:
+        case MemoryLimitException:
+            // ...if term this thrd is not enough, do other action
+            kernel->currentThread->Finish();
+            ASSERTNOTREACHED();
+            break;
         default:
             cerr << "Unexpected user mode exception " << (int)which << "\n";
             break;

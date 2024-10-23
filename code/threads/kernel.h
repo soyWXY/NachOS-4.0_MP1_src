@@ -72,6 +72,8 @@ class Kernel {
 
     int hostName;  // machine identifier
 
+    List<int> allFreeFrame;
+
    private:
     Thread *t[10];
     char *execfile[10];
