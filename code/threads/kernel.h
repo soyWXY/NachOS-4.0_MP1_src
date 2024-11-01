@@ -18,6 +18,7 @@
 #include "stats.h"
 #include "thread.h"
 #include "utility.h"
+#include "list.h"
 
 class PostOfficeInput;
 class PostOfficeOutput;
@@ -71,6 +72,8 @@ class Kernel {
     int execRunningNum;  // number of running threads
 
     int hostName;  // machine identifier
+
+    List<int> allFreeFrame;
 
    private:
     Thread *t[10];

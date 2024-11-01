@@ -57,24 +57,21 @@ SwapHeader(NoffHeader *noffH) {
 //----------------------------------------------------------------------
 // AddrSpace::AddrSpace
 // 	Create an address space to run a user program.
-//	Set up the translation from program memory to physical
-//	memory.  For now, this is really simple (1:1), since we are
-//	only uniprogramming, and we have a single unsegmented page table
+//  Initialize pageTable for translation, and support multiprogramming.
+//  Using per-thread unsegmented page table for translation.
+//  Modify pageTable when loading a program or page fault.
 //----------------------------------------------------------------------
 
 AddrSpace::AddrSpace() {
     pageTable = new TranslationEntry[NumPhysPages];
     for (int i = 0; i < NumPhysPages; i++) {
-        pageTable[i].virtualPage = i;  // for now, virt page # = phys page #
-        pageTable[i].physicalPage = i;
-        pageTable[i].valid = TRUE;
+        pageTable[i].virtualPage = i;
+        pageTable[i].physicalPage = NumPhysPages;  // set an invalid value for debugging
+        pageTable[i].valid = FALSE;
         pageTable[i].use = FALSE;
         pageTable[i].dirty = FALSE;
         pageTable[i].readOnly = FALSE;
     }
-
-    // zero out the entire address space
-    bzero(kernel->machine->mainMemory, MemorySize);
 }
 
 //----------------------------------------------------------------------
@@ -83,15 +80,50 @@ AddrSpace::AddrSpace() {
 //----------------------------------------------------------------------
 
 AddrSpace::~AddrSpace() {
+    DEBUG(dbgAddr, "Releasing address space: " << numPages);
+    for (int i = 0; i < NumPhysPages; ++i) {
+        int pfn = pageTable[i].physicalPage;
+        if (pageTable[i].valid) {
+            bzero(&kernel->machine->mainMemory[pfn * PageSize], PageSize);
+            kernel->allFreeFrame.Append(pfn);
+        }
+    }
     delete[] pageTable;
+}
+
+void AddrSpace::LoadSegment(OpenFile *executable, int fpos, int vaddr, int size, bool readonly) {
+    const int vpn = vaddr / PageSize;
+    const int offset = vaddr % PageSize;
+    const int npage = (vaddr + size - 1) / PageSize - vpn + 1;
+    int read_len = 0;
+    char *mem = kernel->machine->mainMemory;
+    for (int i = 0; i < npage; ++i) {
+        int pfn = kernel->allFreeFrame.RemoveFront();
+        pageTable[vpn + i].valid = TRUE;
+        pageTable[vpn + i].readOnly = readonly;
+        pageTable[vpn + i].physicalPage = pfn;
+
+        if (i == npage - 1) {
+            executable->ReadAt(&mem[pfn * PageSize],
+                size - read_len, fpos + read_len);
+        } else if (i) {
+            executable->ReadAt(&mem[pfn * PageSize],
+                PageSize, fpos + read_len);
+                read_len += PageSize;
+        } else {
+            executable->ReadAt(&mem[pfn * PageSize + offset],
+                PageSize - offset, fpos);
+                read_len += PageSize - offset;
+        }
+    }
 }
 
 //----------------------------------------------------------------------
 // AddrSpace::Load
 // 	Load a user program into memory from a file.
 //
-//	Assumes that the page table has been initialized, and that
-//	the object code file is in NOFF format.
+//	Assumes that the object code file is in NOFF format. Allocate frame
+//  and set up page table.
 //
 //	"fileName" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
@@ -126,39 +158,48 @@ bool AddrSpace::Load(char *fileName) {
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);  // check we're not trying
-                                       // to run anything too big --
-                                       // at least until we have
-                                       // virtual memory
-
     DEBUG(dbgAddr, "Initializing address space: " << numPages << ", " << size);
 
-    // then, copy in the code and data segments into memory
-    // Note: this code assumes that virtual address = physical address
+    if (numPages > kernel->allFreeFrame.NumInList()) {
+        DEBUG(dbgAddr, "Insufficient free frame. aquire # = "
+            << numPages << ", free # = " << kernel->allFreeFrame.NumInList());
+        DEBUG(dbgMach, "Exception: out of memory.");
+        delete executable;
+        ExceptionHandler(MemoryLimitException);
+        ASSERTNOTREACHED();
+    }
+
     if (noffH.code.size > 0) {
         DEBUG(dbgAddr, "Initializing code segment.");
         DEBUG(dbgAddr, noffH.code.virtualAddr << ", " << noffH.code.size);
-        executable->ReadAt(
-            &(kernel->machine->mainMemory[noffH.code.virtualAddr]),
-            noffH.code.size, noffH.code.inFileAddr);
+        LoadSegment(executable, noffH.code.inFileAddr,
+            noffH.code.virtualAddr, noffH.code.size, FALSE);
     }
+
     if (noffH.initData.size > 0) {
         DEBUG(dbgAddr, "Initializing data segment.");
         DEBUG(dbgAddr, noffH.initData.virtualAddr << ", " << noffH.initData.size);
-        executable->ReadAt(
-            &(kernel->machine->mainMemory[noffH.initData.virtualAddr]),
-            noffH.initData.size, noffH.initData.inFileAddr);
+        LoadSegment(executable, noffH.initData.inFileAddr,
+            noffH.initData.virtualAddr, noffH.initData.size, FALSE);
     }
 
 #ifdef RDATA
     if (noffH.readonlyData.size > 0) {
         DEBUG(dbgAddr, "Initializing read only data segment.");
         DEBUG(dbgAddr, noffH.readonlyData.virtualAddr << ", " << noffH.readonlyData.size);
-        executable->ReadAt(
-            &(kernel->machine->mainMemory[noffH.readonlyData.virtualAddr]),
-            noffH.readonlyData.size, noffH.readonlyData.inFileAddr);
+        LoadSegment(executable, noffH.readonlyData.inFileAddr,
+            noffH.readonlyData.virtualAddr, noffH.readonlyData.size, FALSE);
     }
 #endif
+
+    // allocate frames for stack
+    for (int i = 0; i < numPages; ++i) {
+        if (!pageTable[i].valid) {
+            int pfn = kernel->allFreeFrame.RemoveFront();
+            pageTable[i].valid = TRUE;
+            pageTable[i].physicalPage = pfn;
+        }
+    }
 
     delete executable;  // close file
     return TRUE;        // success

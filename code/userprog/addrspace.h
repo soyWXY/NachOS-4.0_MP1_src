@@ -41,13 +41,15 @@ class AddrSpace {
     ExceptionType Translate(unsigned int vaddr, unsigned int *paddr, int mode);
 
    private:
-    TranslationEntry *pageTable;  // Assume linear page table translation
-                                  // for now!
+    TranslationEntry *pageTable;  // unsegmented page table
+
     unsigned int numPages;        // Number of pages in the virtual
                                   // address space
 
     void InitRegisters();  // Initialize user-level CPU registers,
                            // before jumping to user code
+
+    void LoadSegment(OpenFile *executable, int fpos, int vaddr, int size, bool readonly);
 };
 
 #endif  // ADDRSPACE_H

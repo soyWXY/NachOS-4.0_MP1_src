@@ -37,6 +37,10 @@ Kernel::Kernel(int argc, char **argv) {
     reliability = 1;  // network reliability, default is 1.0
     hostName = 0;     // machine id, also UNIX socket name
                       // 0 is the default machine id
+
+    for (int i = 0; i < NumPhysPages; ++i)
+        allFreeFrame.Append(i);
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-rs") == 0) {
             ASSERT(i + 1 < argc);
